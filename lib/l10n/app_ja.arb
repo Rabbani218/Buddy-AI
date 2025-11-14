@@ -1,0 +1,40 @@
+{
+  "@@locale": "ja",
+  "chatPlaceholder": "メッセージを入力...",
+  "appTitle": "HealthBuddy AI",
+  "newSessionTooltip": "新しいセッションを開始",
+  "greetingPrompt": "HealthBuddy として新規ユーザーに温かい挨拶をし、今日実践できる簡単なウェルネスのヒントをひとつ含めてください。",
+  "greetingFallback": "こんにちは、HealthBuddy AIです。お会いできて嬉しいです！今日はどんな気分か教えてください。",
+  "resetChat": "チャットをリセット",
+  "settingsTitle": "設定",
+  "languageLabel": "言語",
+  "languageEnglish": "英語",
+  "languageIndonesian": "インドネシア語",
+  "languageJapanese": "日本語",
+  "saveButton": "保存",
+  "voiceInputPermissionDenied": "音声入力を使うにはマイクの権限を許可してください。",
+  "geminiServiceError": "申し訳ありません。Gemini サービスで問題が発生しました: {error}。少ししてから再試行してください。",
+  "@geminiServiceError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "geminiTechnicalIssue": "申し訳ありません。技術的な問題が発生しています。メッセージをもう一度送ってください。",
+  "geminiEmptyResponse": "申し訳ありません。今はお答えできません。別の質問を試してください。",
+  "voiceInputError": "音声入力エラー: {details}",
+  "@voiceInputError": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "attachImageTooltip": "画像を添付",
+  "voiceInputTooltipStart": "音声入力",
+  "voiceInputTooltipStop": "聞き取りを停止",
+  "galleryLabel": "ギャラリー",
+  "cameraLabel": "カメラ",
+  "copyConfirmation": "メッセージをコピーしました。",
+  "ttsFailed": "音声を再生できませんでした。",
+  "shareLabel": "共有",
+  "copyLabel": "コピー",
+  "replayLabel": "再生"
+}

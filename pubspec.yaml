@@ -1,0 +1,42 @@
+name: healthbuddy_ai
+description: >-
+  HealthBuddy AI is a single-screen prototype showcasing a 3D AI avatar with
+  authentic conversational flow and wellness tips.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  flutter_riverpod: ^2.4.9
+  model_viewer_plus: ^1.7.0
+  google_generative_ai: ^0.4.0
+  flutter_tts: ^4.2.3
+  speech_to_text: ^7.3.0
+  flutter_markdown: ^0.6.18
+  share_plus: ^7.2.2
+  image_picker: ^1.0.7
+  shared_preferences: ^2.2.3
+  intl: ^0.19.0
+  flutter_svg: ^2.0.9
+  url_launcher: ^6.2.6
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/3d/avatar.glb
+    - assets/3d/
+    - assets/data/
+    - assets/images/
+    - assets/icons/

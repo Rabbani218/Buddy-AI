@@ -1,0 +1,40 @@
+{
+  "@@locale": "en",
+  "chatPlaceholder": "Type a message...",
+  "appTitle": "HealthBuddy AI",
+  "newSessionTooltip": "Start new session",
+  "greetingPrompt": "Provide a warm greeting as HealthBuddy for a new user and include one easy wellness tip to try today.",
+  "greetingFallback": "Hi, I'm HealthBuddy AI. Great to meet you! Tell me how you're feeling today.",
+  "resetChat": "Reset Chat",
+  "settingsTitle": "Settings",
+  "languageLabel": "Language",
+  "languageEnglish": "English",
+  "languageIndonesian": "Indonesian",
+  "languageJapanese": "Japanese",
+  "saveButton": "Save",
+  "voiceInputPermissionDenied": "Microphone permission denied. Enable it to use voice input.",
+  "geminiServiceError": "Sorry, Gemini service issue: {error}. Please try again shortly.",
+  "@geminiServiceError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "geminiTechnicalIssue": "Sorry, I'm having a technical issue. Please resend your message.",
+  "geminiEmptyResponse": "Sorry, I can't respond right now. Please try another question.",
+  "voiceInputError": "Voice input error: {details}",
+  "@voiceInputError": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "attachImageTooltip": "Attach image",
+  "voiceInputTooltipStart": "Voice input",
+  "voiceInputTooltipStop": "Stop listening",
+  "galleryLabel": "Gallery",
+  "cameraLabel": "Camera",
+  "copyConfirmation": "Message copied to clipboard.",
+  "ttsFailed": "Unable to play voice.",
+  "shareLabel": "Share",
+  "copyLabel": "Copy",
+  "replayLabel": "Replay voice"
+}

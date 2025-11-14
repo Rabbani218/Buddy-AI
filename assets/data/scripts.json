@@ -1,0 +1,25 @@
+{
+  "greeting": "Halo, aku HealthBuddy AI. Senang bertemu denganmu hari ini! Bagaimana kabarmu?",
+  "tips": [
+    "Mulailah pagi dengan segelas air hangat dan sedikit peregangan ringan selama 5 menit.",
+    "Istirahatkan mata setiap 30 menit kerja dengan melihat objek yang jauh selama 20 detik.",
+    "Luangkan waktu untuk pernapasan diafragma selama 2 menit agar pikiran tetap tenang.",
+    "Catat pola tidurmu dan usahakan tidur serta bangun pada jam yang konsisten.",
+    "Tambahkan sayuran berwarna hijau tua ke dalam menu makan siangmu hari ini."
+  ],
+  "responses": [
+    {
+      "keywords": ["sedih", "murung", "down", "bad mood"],
+      "response": "Aku mendengar kamu sedang merasa sedih. Coba tarik napas perlahan 4 hitungan, tahan 4 hitungan, dan hembuskan 6 hitungan. Jika mau, ceritakan juga apa yang membuatmu merasa seperti ini."
+    },
+    {
+      "keywords": ["terima kasih", "makasih", "thanks", "thank you"],
+      "response": "Sama-sama! Aku senang bisa membantu. Kalau butuh apa pun lagi, tinggal bilang ya."
+    },
+    {
+      "keywords": ["lelah", "capek", "letih", "tired"],
+      "response": "Badan terasa lelah ya? Coba lakukan peregangan sederhana dan minum air. Jika memungkinkan, istirahatkan tubuh selama 10 menit tanpa layar."
+    }
+  ],
+  "fallback": "Aku di sini untuk menemanimu menjaga kesehatan. Kalau bingung harus mulai dari mana, pilih satu kebiasaan sehat kecil dan lakukan hari ini."
+}

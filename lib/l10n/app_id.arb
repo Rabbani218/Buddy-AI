@@ -1,0 +1,40 @@
+{
+  "@@locale": "id",
+  "chatPlaceholder": "Ketik pesan...",
+  "appTitle": "HealthBuddy AI",
+  "newSessionTooltip": "Mulai sesi baru",
+  "greetingPrompt": "Berikan sapaan pembuka hangat sebagai HealthBuddy untuk pengguna baru dan sertakan satu tips kesehatan singkat yang mudah dilakukan hari ini.",
+  "greetingFallback": "Halo, aku HealthBuddy AI. Senang bertemu denganmu! Ceritakan bagaimana perasaanmu hari ini.",
+  "resetChat": "Reset Obrolan",
+  "settingsTitle": "Pengaturan",
+  "languageLabel": "Bahasa",
+  "languageEnglish": "Inggris",
+  "languageIndonesian": "Indonesia",
+  "languageJapanese": "Jepang",
+  "saveButton": "Simpan",
+  "voiceInputPermissionDenied": "Izin mikrofon ditolak. Aktifkan untuk memakai input suara.",
+  "geminiServiceError": "Maaf, terjadi kendala pada layanan Gemini: {error}. Coba lagi sebentar lagi.",
+  "@geminiServiceError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "geminiTechnicalIssue": "Maaf, aku sedang mengalami kendala teknis. Silakan coba kirim ulang pesannya.",
+  "geminiEmptyResponse": "Maaf, aku belum bisa merespons sekarang. Silakan coba pertanyaan lain.",
+  "voiceInputError": "Kesalahan input suara: {details}",
+  "@voiceInputError": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "attachImageTooltip": "Lampirkan gambar",
+  "voiceInputTooltipStart": "Input suara",
+  "voiceInputTooltipStop": "Hentikan mendengarkan",
+  "galleryLabel": "Galeri",
+  "cameraLabel": "Kamera",
+  "copyConfirmation": "Pesan disalin ke clipboard.",
+  "ttsFailed": "Gagal memutar suara.",
+  "shareLabel": "Bagikan",
+  "copyLabel": "Salin",
+  "replayLabel": "Putar ulang"
+}
