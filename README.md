@@ -1,27 +1,44 @@
 
 # HealthBuddy AI
 
+[![Flutter](https://img.shields.io/badge/Built%20with-Flutter-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Education Ready](https://img.shields.io/badge/Use%20Case-Education%20%7C%20Wellness-blueviolet)](#-education)
+
 HealthBuddy AI is an advanced, multi-platform AI chat assistant built with Flutter. Powered by Google Gemini, this application offers a seamless, responsive, and interactive conversational experience across multiple devices.
 
+> ℹ️ Replace the image placeholder below with your own screenshot or product mockup to enrich the repository landing page.
+
 \<div align="center"\>
-\<img src="[INSERT\_YOUR\_SCREENSHOT\_LINK\_HERE]" alt="HealthBuddy AI Screenshot" width="800"/\>
+\<img src="[INSERT_SCREENSHOT_URL]" alt="HealthBuddy AI Screenshot" width="820"/\>
 \</div\>
 
------
+---
+
+## 📚 Table of Contents
+
+- [Key Features](#-key-features)
+- [Tech Stack](#-tech-stack)
+- [Education](#-education)
+- [Getting Started](#getting-started)
+- [Running the Application](#3-running-the-application)
+- [Acknowledgements](#-acknowledgements)
+- [License](#-license)
+- [Contributor](#-contributor)
+
+---
 
 ## 🚀 Key Features
 
-  * **Modern Glassmorphism UI:** A clean, aesthetic interface with a glassmorphism effect that adapts to system Light and Dark modes.
-  * **3D AI Avatar:** An interactive AI avatar rendered in real-time from a `.glb` file (via `model_viewer_plus`).
-  * **Streaming Responses:** AI responses appear word-by-word (typewriter effect), powered by Gemini's `streamGenerateContent`.
-  * **Conversation Memory:** The AI can "remember" previous messages in the conversation to provide contextual responses.
-  * **Full Voice Interaction:**
-      * **Speech-to-Text (STT):** Input messages using your voice (supports multiple locales).
-      * **Text-to-Speech (TTS):** Listen to the AI's responses in a supported language (defaults to Indonesian).
-  * **Persistent Chat History:** All conversations are saved locally using the lightning-fast NoSQL database, **Isar**.
-  * **Multi-Platform:** A single codebase that runs on **Windows**, **Android**, and the **Web**.
-  * **Multi-Language (i18n):** Supports multiple languages for the UI (English, Indonesian, Japanese) using `flutter_gen_l10n`.
-  * **Quick Actions:** Action buttons on AI chat bubbles to **Copy**, **Share**, or **Replay** the audio response.
+- **Modern Glassmorphism UI:** Clean cards, vibrant gradients, and support for both light and dark modes.
+- **3D AI Avatar:** Real-time GLB rendering (via `model_viewer_plus`) with intelligent idle/talking animation control for the web.
+- **Streaming Responses:** Gemini responses appear word-by-word, creating a natural conversational flow.
+- **Conversation Memory:** Keeps context across turns so the AI can deliver follow-up insights.
+- **Full Voice Interaction:** Speech-to-text for input and text-to-speech playback in supported locales (defaults to Indonesian).
+- **Persistent Chat History:** Conversations are saved locally using the blazing-fast Isar database.
+- **Settings with Bilingual About:** English and Japanese app descriptions with proper asset credits and GitHub link.
+- **Multi-Platform & Multi-Language:** Runs on Windows, Android, and Web with localized UI strings (EN, ID, JA).
+- **Quick Actions:** Copy, share, and replay audio directly from each AI message bubble.
 
 ## 🛠️ Tech Stack
 
@@ -37,7 +54,7 @@ HealthBuddy AI is an advanced, multi-platform AI chat assistant built with Flutt
 
 -----
 
-## ⚙️ Getting Started
+## Getting Started
 
 This project requires a few specific setup steps due to its reliance on code generators and external APIs.
 
@@ -52,10 +69,10 @@ This project requires a few specific setup steps due to its reliance on code gen
 
 1.  **Clone the repository:**
 
-    ```bash
-    git clone https://github.com/[YOUR_USERNAME]/healthbuddy_ai.git
-    cd healthbuddy_ai
-    ```
+  ```bash
+  git clone https://github.com/Rabbani218/Buddy-AI.git
+  cd Buddy-AI
+  ```
 
 2.  **Get a Gemini API Key:**
 
@@ -112,10 +129,31 @@ flutter run -d chrome --web-browser-flag="--disable-web-security" --web-browser-
 
 -----
 
+## 📚 Education
+
+HealthBuddy AI is designed as a teaching and demonstration tool for:
+
+- **Digital Wellness Programs:** Show students how conversational AI can support healthy daily routines.
+- **AI & Flutter Workshops:** Demonstrate real-time 3D rendering, Riverpod state management, and Gemini integration in one project.
+- **Capstone Inspirations:** Provide a springboard for learners who want to extend the assistant with custom prompts, avatars, or data sources.
+- **Language Practice:** Combine multilingual UI with voice capabilities to help users practice English, Indonesian, or Japanese conversations.
+
+Educators are encouraged to fork the project, replace the prompt set with course-specific material, and provide localized content tailored to their cohorts.
+
+---
+
+## 🙌 Acknowledgements
+
+- 3D avatar: ["FREE Annie anime gerl" by FibonacciFox (Sketchfab)](https://sketchfab.com/3d-models/free-annie-anime-gerl-490a8417cac946899eac86fba72cc210)
+- Background gradient: [Photo by Plufow Le Studio (Unsplash)](https://unsplash.com/id/foto/gambar-buram-dari-latar-belakang-biru-dan-merah-muda-bUtAqPi-wz4)
+- GitHub icon: [GitHub Mark](https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png)
+
+---
+
 ## 📄 License
 
-This project is licensed under the terms of the MIT License. See the `LICENSE` file for details.
+This project is licensed under the terms of the [MIT License](LICENSE). You are free to use, modify, and distribute the code with proper attribution.
 
 ## 👤 Contributor
 
-  * **Muhammad Abdurrahman Rabbani** (Rahman/Hanif) - *Lead Developer*
+  * **Muhammad Abdurrahman Rabbani** (Rahman/Hanif) — *Lead Developer*

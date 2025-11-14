@@ -279,11 +279,15 @@ class _BackgroundAvatar extends StatefulWidget {
 
 class _BackgroundAvatarState extends State<_BackgroundAvatar> {
   static const String _viewerElementId = 'background-avatar-viewer';
+  static const Duration _animationRetryDelay = Duration(milliseconds: 150);
+  static const int _maxAnimationRetries = 8;
   String? _modelSrc;
   String? _posterSrc;
   bool _isLoading = kIsWeb;
   String? _modelObjectUrl;
   String? _posterObjectUrl;
+  String? _idleAnimationName;
+  String? _thinkingAnimationName;
 
   @override
   void initState() {
@@ -294,6 +298,7 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
       _modelSrc = AppAssets.aiAvatar;
       _posterSrc = AppAssets.aiAvatarPoster;
       _isLoading = false;
+      _resetAnimationCache();
     }
     WidgetsBinding.instance.addPostFrameCallback((_) => _syncAnimationState());
   }
@@ -351,6 +356,7 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
         _isLoading = false;
         _modelObjectUrl = _isObjectUrl(modelUri) ? modelUri : null;
         _posterObjectUrl = _isObjectUrl(posterUri) ? posterUri : null;
+        _resetAnimationCache();
       });
       WidgetsBinding.instance
           .addPostFrameCallback((_) => _syncAnimationState());
@@ -362,6 +368,7 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
         _isLoading = false;
         _modelSrc = AppAssets.aiAvatar;
         _posterSrc = AppAssets.aiAvatarPoster;
+        _resetAnimationCache();
       });
       WidgetsBinding.instance
           .addPostFrameCallback((_) => _syncAnimationState());
@@ -384,15 +391,15 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
     }
 
     return SizedBox(
-      width: 300,
-      height: 400,
+      width: 360,
+      height: 520,
       child: ModelViewer(
         key: ValueKey('${modelSrc}_${widget.isThinking}'),
         src: modelSrc,
         alt: 'AI Avatar',
-        autoPlay: true,
+        autoPlay: false,
         autoRotate: false,
-        animationName: 'Walk',
+        animationName: _idleAnimationName,
         cameraControls: false,
         disablePan: true,
         disableTap: true,
@@ -404,9 +411,9 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
         exposure: 1.1,
         shadowIntensity: 0.6,
         shadowSoftness: 0.8,
-        cameraOrbit: '0deg 70deg 3.4m',
-        cameraTarget: '0m 1.75m 0m',
-        fieldOfView: '40deg',
+        cameraOrbit: '0deg 67deg 4.3m',
+        cameraTarget: '0m 1.2m 0m',
+        fieldOfView: '55deg',
         backgroundColor: Colors.transparent,
         poster: posterSrc,
         id: _viewerElementId,
@@ -425,18 +432,113 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
       if (!mounted) {
         return;
       }
+      final animations = getAvatarAnimationNames(_viewerElementId);
+      if (animations == null || animations.isEmpty) {
+        if (retries > 0) {
+          Future<void>.delayed(
+            _animationRetryDelay,
+            () => attempt(retries - 1),
+          );
+        }
+        return;
+      }
+
+      _ensureAnimationPreferences(animations);
+
+      final selectedAnimation = widget.isThinking
+          ? (_thinkingAnimationName ?? _idleAnimationName)
+          : _idleAnimationName;
+      if (selectedAnimation == null) {
+        if (retries > 0) {
+          Future<void>.delayed(
+            _animationRetryDelay,
+            () => attempt(retries - 1),
+          );
+        }
+        return;
+      }
+
       final success = widget.isThinking
-          ? playAvatarAnimation(_viewerElementId)
-          : pauseAvatarAnimation(_viewerElementId, currentTime: 0);
+          ? playAvatarAnimation(
+              _viewerElementId,
+              animationName: selectedAnimation,
+            )
+          : pauseAvatarAnimation(
+              _viewerElementId,
+              animationName: selectedAnimation,
+              currentTime: 0,
+            );
       if (!success && retries > 0) {
         Future<void>.delayed(
-          const Duration(milliseconds: 120),
+          _animationRetryDelay,
           () => attempt(retries - 1),
         );
       }
     }
 
-    attempt(4);
+    attempt(_maxAnimationRetries);
+  }
+
+  void _ensureAnimationPreferences(List<String> animations) {
+    _idleAnimationName ??=
+        _pickAnimation(animations, const ['idle', 'breath', 'stand', 'pose']);
+    _thinkingAnimationName ??=
+        _pickAnimation(animations, const ['talk', 'speak', 'chat', 'gesture']);
+
+    if (_idleAnimationName == null && animations.isNotEmpty) {
+      _idleAnimationName = animations.firstWhere(
+        (name) {
+          final lower = name.toLowerCase();
+          return !lower.contains('walk') &&
+              !lower.contains('run') &&
+              !lower.contains('dance');
+        },
+        orElse: () => animations.first,
+      );
+    }
+    if (_thinkingAnimationName == null) {
+      final movement = animations.firstWhere(
+        (name) {
+          final lower = name.toLowerCase();
+          return lower.contains('talk') ||
+              lower.contains('speak') ||
+              lower.contains('gesture') ||
+              lower.contains('wave');
+        },
+        orElse: () => '',
+      );
+      if (movement.isNotEmpty) {
+        _thinkingAnimationName = movement;
+      } else {
+        final walkAlternative = animations.firstWhere(
+          (name) => name.toLowerCase().contains('walk'),
+          orElse: () => '',
+        );
+        if (walkAlternative.isNotEmpty && walkAlternative != _idleAnimationName) {
+          _thinkingAnimationName = walkAlternative;
+        } else {
+          _thinkingAnimationName = _idleAnimationName;
+        }
+      }
+    }
+  }
+
+  String? _pickAnimation(List<String> animations, List<String> keywords) {
+    for (final keyword in keywords) {
+      final match = animations.firstWhere(
+        (name) => name.toLowerCase().contains(keyword),
+        orElse: () => '',
+      );
+      if (match.isNotEmpty) {
+        return match;
+      }
+    }
+    return null;
+  }
+
+  void _resetAnimationCache() {
+    _idleAnimationName = null;
+    _thinkingAnimationName = null;
   }
 
   void _disposeObjectUrls() {
