@@ -832,7 +832,7 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
       key: ValueKey('${modelSrc}_${widget.isThinking}'),
       src: modelSrc,
       alt: 'AI Avatar',
-      autoPlay: false,
+      autoPlay: true,
       animationName: null,
       autoRotate: false,
       cameraControls: false,
@@ -847,9 +847,9 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
       shadowIntensity: 0.6,
       shadowSoftness: 0.8,
       interactionPrompt: InteractionPrompt.none,
-      cameraOrbit: '0deg 75deg 6m',
+      cameraOrbit: '0deg 75deg 3m',
       fieldOfView: '45deg',
-      cameraTarget: '0m 2.0m 0m',
+      cameraTarget: '0m 1.2m 0m',
       backgroundColor: Colors.transparent,
       poster: posterSrc,
       id: _viewerElementId,
@@ -880,10 +880,10 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
 
       _ensureAnimationPreferences(animations);
 
-      final selectedAnimation = widget.isThinking
+      final targetAnimation = widget.isThinking
           ? (_thinkingAnimationName ?? _idleAnimationName)
           : _idleAnimationName;
-      if (selectedAnimation == null) {
+      if (targetAnimation == null) {
         if (retries > 0) {
           Future<void>.delayed(
             _animationRetryDelay,
@@ -893,16 +893,10 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
         return;
       }
 
-      final success = widget.isThinking
-          ? playAvatarAnimation(
-              _viewerElementId,
-              animationName: selectedAnimation,
-            )
-          : pauseAvatarAnimation(
-              _viewerElementId,
-              animationName: selectedAnimation,
-              currentTime: 0,
-            );
+      final success = playAvatarAnimation(
+        _viewerElementId,
+        animationName: targetAnimation,
+      );
       if (!success && retries > 0) {
         Future<void>.delayed(
           _animationRetryDelay,
@@ -915,60 +909,20 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
   }
 
   void _ensureAnimationPreferences(List<String> animations) {
-    _idleAnimationName ??=
-        _pickAnimation(animations, const ['idle', 'breath', 'stand', 'pose']);
-    _thinkingAnimationName ??=
-        _pickAnimation(animations, const ['talk', 'speak', 'chat', 'gesture']);
+    const idleAnimation = 'BreathingIdle';
+    const thinkingAnimation = 'Talking';
 
-    if (_idleAnimationName == null && animations.isNotEmpty) {
-      _idleAnimationName = animations.firstWhere(
-        (name) {
-          final lower = name.toLowerCase();
-          return !lower.contains('walk') &&
-              !lower.contains('run') &&
-              !lower.contains('dance');
-        },
-        orElse: () => animations.first,
-      );
+    if (animations.contains(idleAnimation)) {
+      _idleAnimationName = idleAnimation;
+    } else if (animations.isNotEmpty) {
+      _idleAnimationName ??= animations.first;
     }
-    if (_thinkingAnimationName == null) {
-      final movement = animations.firstWhere(
-        (name) {
-          final lower = name.toLowerCase();
-          return lower.contains('talk') ||
-              lower.contains('speak') ||
-              lower.contains('gesture') ||
-              lower.contains('wave');
-        },
-        orElse: () => '',
-      );
-      if (movement.isNotEmpty) {
-        _thinkingAnimationName = movement;
-      } else {
-        final walkAlternative = animations.firstWhere(
-          (name) => name.toLowerCase().contains('walk'),
-          orElse: () => '',
-        );
-        if (walkAlternative.isNotEmpty && walkAlternative != _idleAnimationName) {
-          _thinkingAnimationName = walkAlternative;
-        } else {
-          _thinkingAnimationName = _idleAnimationName;
-        }
-      }
-    }
-  }
 
-  String? _pickAnimation(List<String> animations, List<String> keywords) {
-    for (final keyword in keywords) {
-      final match = animations.firstWhere(
-        (name) => name.toLowerCase().contains(keyword),
-        orElse: () => '',
-      );
-      if (match.isNotEmpty) {
-        return match;
-      }
+    if (animations.contains(thinkingAnimation)) {
+      _thinkingAnimationName = thinkingAnimation;
+    } else {
+      _thinkingAnimationName ??= _idleAnimationName;
     }
-    return null;
   }
 
   void _resetAnimationCache() {

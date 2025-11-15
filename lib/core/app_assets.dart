@@ -4,7 +4,7 @@ class AppAssets {
   // Backgrounds & Illustrations
   static const String bgMain = 'assets/images/background.jpg';
   static const String illEmptyState = 'assets/images/empty_state.svg';
-  static const String aiAvatar = 'assets/3d/avatar.glb';
+  static const String aiAvatar = 'assets/images/Avatar.glb';
   static const String aiAvatarModel = 'assets/3d/avatar.glb';
   static const String aiAvatarPoster = 'assets/images/background.jpg';
 
