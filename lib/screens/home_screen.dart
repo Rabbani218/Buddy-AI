@@ -391,8 +391,8 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
     }
 
     return SizedBox(
-      width: 360,
-      height: 520,
+      width: 380,
+      height: 580,
       child: ModelViewer(
         key: ValueKey('${modelSrc}_${widget.isThinking}'),
         src: modelSrc,
@@ -411,9 +411,9 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
         exposure: 1.1,
         shadowIntensity: 0.6,
         shadowSoftness: 0.8,
-        cameraOrbit: '0deg 67deg 4.3m',
+        cameraOrbit: '0deg 65deg 4.4m',
         cameraTarget: '0m 1.2m 0m',
-        fieldOfView: '55deg',
+        fieldOfView: '52deg',
         backgroundColor: Colors.transparent,
         poster: posterSrc,
         id: _viewerElementId,
