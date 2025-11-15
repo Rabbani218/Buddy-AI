@@ -36,5 +36,10 @@
   "ttsFailed": "音声を再生できませんでした。",
   "shareLabel": "共有",
   "copyLabel": "コピー",
-  "replayLabel": "再生"
+  "replayLabel": "再生",
+  "chatHistoryTooltip": "セッション履歴",
+  "chatHistoryEmpty": "まだセッションがありません。新しい会話を始めるとここに表示されます。",
+  "sessionLoadError": "セッションを読み込めませんでした。もう一度お試しください。",
+  "retryLabel": "再試行",
+  "sessionNotReady": "セッションを読み込み中です。しばらくお待ちください。"
 }

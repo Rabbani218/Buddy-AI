@@ -36,5 +36,10 @@
   "ttsFailed": "Gagal memutar suara.",
   "shareLabel": "Bagikan",
   "copyLabel": "Salin",
-  "replayLabel": "Putar ulang"
+  "replayLabel": "Putar ulang",
+  "chatHistoryTooltip": "Riwayat sesi",
+  "chatHistoryEmpty": "Belum ada sesi. Mulai percakapan baru untuk melihatnya di sini.",
+  "sessionLoadError": "Riwayat sesi tidak dapat dimuat. Coba lagi.",
+  "retryLabel": "Coba lagi",
+  "sessionNotReady": "Sesi masih dimuat. Tunggu sebentar."
 }

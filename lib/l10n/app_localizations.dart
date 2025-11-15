@@ -258,6 +258,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Replay voice'**
   String get replayLabel;
+
+  /// No description provided for @chatHistoryTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Session history'**
+  String get chatHistoryTooltip;
+
+  /// No description provided for @chatHistoryEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No sessions yet. Start a new conversation to see it here.'**
+  String get chatHistoryEmpty;
+
+  /// No description provided for @sessionLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t load your chat session. Please try again.'**
+  String get sessionLoadError;
+
+  /// No description provided for @retryLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get retryLabel;
+
+  /// No description provided for @sessionNotReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Session is still loading. Please wait a moment.'**
+  String get sessionNotReady;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

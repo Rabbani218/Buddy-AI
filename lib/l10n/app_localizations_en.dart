@@ -90,4 +90,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get replayLabel => 'Replay voice';
+
+  @override
+  String get chatHistoryTooltip => 'Session history';
+
+  @override
+  String get chatHistoryEmpty => 'No sessions yet. Start a new conversation to see it here.';
+
+  @override
+  String get sessionLoadError => 'We couldn\'t load your chat session. Please try again.';
+
+  @override
+  String get retryLabel => 'Retry';
+
+  @override
+  String get sessionNotReady => 'Session is still loading. Please wait a moment.';
 }

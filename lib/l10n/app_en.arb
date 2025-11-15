@@ -36,5 +36,10 @@
   "ttsFailed": "Unable to play voice.",
   "shareLabel": "Share",
   "copyLabel": "Copy",
-  "replayLabel": "Replay voice"
+  "replayLabel": "Replay voice",
+  "chatHistoryTooltip": "Session history",
+  "chatHistoryEmpty": "No sessions yet. Start a new conversation to see it here.",
+  "sessionLoadError": "We couldn't load your chat session. Please try again.",
+  "retryLabel": "Retry",
+  "sessionNotReady": "Session is still loading. Please wait a moment."
 }

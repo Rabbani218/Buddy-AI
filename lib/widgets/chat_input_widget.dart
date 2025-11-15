@@ -28,8 +28,8 @@ class _ChatInputWidgetState extends ConsumerState<ChatInputWidget> {
   bool _isSending = false;
   bool _isListening = false;
   bool _speechInitialized = false;
-  Uint8List? _pendingImageBytes;
-  String _pendingImageMime = 'image/jpeg';
+  XFile? _selectedImage;
+  Uint8List? _selectedImageBytes;
 
   @override
   void dispose() {
@@ -51,7 +51,7 @@ class _ChatInputWidgetState extends ConsumerState<ChatInputWidget> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (_pendingImageBytes != null) ...[
+          if (_selectedImage != null && _selectedImageBytes != null) ...[
             Align(
               alignment: Alignment.centerLeft,
               child: Stack(
@@ -59,7 +59,7 @@ class _ChatInputWidgetState extends ConsumerState<ChatInputWidget> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(16),
                     child: Image.memory(
-                      _pendingImageBytes!,
+                      _selectedImageBytes!,
                       height: 72,
                       width: 72,
                       fit: BoxFit.cover,
@@ -72,7 +72,10 @@ class _ChatInputWidgetState extends ConsumerState<ChatInputWidget> {
                       onTap: _isSending
                           ? null
                           : () {
-                              setState(() => _pendingImageBytes = null);
+                              setState(() {
+                                _selectedImage = null;
+                                _selectedImageBytes = null;
+                              });
                             },
                       child: Container(
                         decoration: const BoxDecoration(
@@ -92,6 +95,13 @@ class _ChatInputWidgetState extends ConsumerState<ChatInputWidget> {
           ],
           Row(
             children: [
+              IconButton(
+                tooltip: l10n.attachImageTooltip,
+                onPressed: _isSending ? null : _pickImageFromGallery,
+                icon: const Icon(Icons.image_outlined),
+                color: textColor.withOpacity(0.85),
+              ),
+              const SizedBox(width: 4),
               Expanded(
                 child: TextFormField(
                   controller: _controller,
@@ -99,7 +109,7 @@ class _ChatInputWidgetState extends ConsumerState<ChatInputWidget> {
                   minLines: 1,
                   maxLines: 4,
                   textInputAction: TextInputAction.send,
-                  onFieldSubmitted: (_) => _handleSend(context),
+                  onFieldSubmitted: (_) => _sendMessage(context),
                   decoration: InputDecoration(
                     hintText: l10n.chatPlaceholder,
                     contentPadding: const EdgeInsets.symmetric(
@@ -109,12 +119,6 @@ class _ChatInputWidgetState extends ConsumerState<ChatInputWidget> {
                 ),
               ),
               const SizedBox(width: 8),
-              IconButton(
-                tooltip: l10n.attachImageTooltip,
-                onPressed: _isSending ? null : _showImagePickerSheet,
-                icon: const Icon(Icons.attach_file_rounded),
-                color: textColor.withOpacity(0.85),
-              ),
               IconButton(
                 tooltip: _isListening
                     ? l10n.voiceInputTooltipStop
@@ -137,7 +141,7 @@ class _ChatInputWidgetState extends ConsumerState<ChatInputWidget> {
                 height: 52,
                 width: 52,
                 child: ElevatedButton(
-                  onPressed: _isSending ? null : () => _handleSend(context),
+                  onPressed: _isSending ? null : () => _sendMessage(context),
                   style: ElevatedButton.styleFrom(
                     padding: EdgeInsets.zero,
                     shape: const CircleBorder(),
@@ -169,10 +173,10 @@ class _ChatInputWidgetState extends ConsumerState<ChatInputWidget> {
     );
   }
 
-  Future<void> _handleSend(BuildContext context) async {
+  Future<void> _sendMessage(BuildContext context) async {
     final l10n = AppLocalizations.of(context)!;
     final rawText = _controller.text.trim();
-    final hasImage = _pendingImageBytes != null;
+    final hasImage = _selectedImage != null && _selectedImageBytes != null;
     if ((rawText.isEmpty && !hasImage) || _isSending) {
       return;
     }
@@ -193,69 +197,83 @@ class _ChatInputWidgetState extends ConsumerState<ChatInputWidget> {
     final chatNotifier = ref.read(chatListProvider.notifier);
     final animationNotifier = ref.read(animationProvider.notifier);
     final thinkingNotifier = ref.read(isAiThinkingProvider.notifier);
+    final sessionState = ref.read(activeSessionProvider);
+    final session = sessionState.maybeWhen(
+      data: (value) => value,
+      orElse: () => null,
+    );
 
-    final imageBytesList = _pendingImageBytes?.toList();
+    if (session == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.sessionNotReady)),
+        );
+        setState(() => _isSending = false);
+      }
+      return;
+    }
+    final sessionId = session.id;
+
+    final Uint8List? imageBytes = _selectedImageBytes;
+    final imageBytesList = imageBytes?.toList(growable: false);
     final userMessage = ChatMessage(
       text: rawText,
       isFromUser: true,
       imageBytes: imageBytesList,
     );
     chatNotifier.state = [...chatNotifier.state, userMessage];
-    await repository.save(userMessage);
+    await repository.save(userMessage, sessionId: sessionId);
     chatNotifier.state = [...chatNotifier.state];
 
     animationNotifier.state = 'Talking';
     thinkingNotifier.state = true;
-
     final aiMessage = ChatMessage(text: '', isFromUser: false);
     chatNotifier.state = [...chatNotifier.state, aiMessage];
 
-    final buffer = StringBuffer();
     var shouldSpeak = true;
-
+    var aiMessageSaved = false;
     try {
-      await for (final chunk in geminiService.streamChatResponse(
-        rawText,
-        repository: repository,
-        imageBytes: imageBytesList,
-        mimeType: _pendingImageMime,
-      )) {
-        if (chunk.trim().isEmpty) {
-          continue;
-        }
-        buffer.write(chunk);
-        aiMessage.text = buffer.toString();
-        aiMessage.timestamp = DateTime.now();
-        chatNotifier.state = [...chatNotifier.state];
-      }
+      final response = await geminiService.sendMessage(
+        prompt: rawText,
+        sessionId: sessionId,
+        imageBytes: imageBytes,
+      );
+      final normalized = response.trim();
+      aiMessage.text =
+          normalized.isEmpty ? l10n.geminiEmptyResponse : normalized;
+      aiMessage.timestamp = DateTime.now();
+      chatNotifier.state = [...chatNotifier.state];
     } on GeminiSafetyException catch (error) {
       shouldSpeak = false;
       aiMessage.text = error.message;
+      aiMessage.timestamp = DateTime.now();
       chatNotifier.state = [...chatNotifier.state];
+      await repository.save(aiMessage, sessionId: sessionId);
+      aiMessageSaved = true;
     } on GeminiServiceException catch (error) {
       shouldSpeak = false;
       aiMessage.text = l10n.geminiServiceError(error.message);
+      aiMessage.timestamp = DateTime.now();
       chatNotifier.state = [...chatNotifier.state];
-    } catch (_) {
+      await repository.save(aiMessage, sessionId: sessionId);
+      aiMessageSaved = true;
+    } catch (error) {
       shouldSpeak = false;
-      aiMessage.text = l10n.geminiTechnicalIssue;
+      final errorMessage = 'Maaf, terjadi kesalahan: $error';
+      aiMessage.text = errorMessage;
+      aiMessage.timestamp = DateTime.now();
       chatNotifier.state = [...chatNotifier.state];
+      await repository.save(aiMessage, sessionId: sessionId);
+      aiMessageSaved = true;
     } finally {
-      if (aiMessage.text.trim().isEmpty) {
-        final synthesized = buffer.toString().trim();
-        aiMessage.text =
-            synthesized.isEmpty ? l10n.geminiEmptyResponse : synthesized;
-        aiMessage.timestamp = DateTime.now();
-        chatNotifier.state = [...chatNotifier.state];
+      if (!aiMessageSaved) {
+        await repository.save(aiMessage, sessionId: sessionId);
       }
-
-      await repository.save(aiMessage);
       chatNotifier.state = [...chatNotifier.state];
-
       thinkingNotifier.state = false;
       animationNotifier.state = 'Idle';
       if (shouldSpeak) {
-        final spokenText = buffer.toString().trim();
+        final spokenText = aiMessage.text.trim();
         if (spokenText.isNotEmpty) {
           try {
             await ttsService.speak(spokenText);
@@ -268,65 +286,38 @@ class _ChatInputWidgetState extends ConsumerState<ChatInputWidget> {
       if (mounted) {
         setState(() {
           _isSending = false;
-          _pendingImageBytes = null;
+          _selectedImage = null;
+          _selectedImageBytes = null;
         });
         _controller.clear();
       }
     }
   }
 
-  Future<void> _showImagePickerSheet() async {
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      builder: (sheetContext) {
-        final l10n = AppLocalizations.of(sheetContext)!;
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.photo_library_rounded),
-                title: Text(l10n.galleryLabel),
-                onTap: () =>
-                    Navigator.of(sheetContext).pop(ImageSource.gallery),
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_camera_rounded),
-                title: Text(l10n.cameraLabel),
-                onTap: () => Navigator.of(sheetContext).pop(ImageSource.camera),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    if (source == null) {
-      return;
-    }
-
-    final XFile? file;
+  Future<void> _pickImageFromGallery() async {
     try {
-      file = await _imagePicker.pickImage(
-          source: source, maxWidth: 1280, imageQuality: 85);
+      final file = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1280,
+        imageQuality: 85,
+      );
+      if (file == null) {
+        return;
+      }
+      final bytes = await file.readAsBytes();
+      if (bytes.isEmpty) {
+        return;
+      }
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _selectedImage = file;
+        _selectedImageBytes = bytes;
+      });
     } catch (_) {
-      return;
+      // Ignore picker errors; user can attempt again.
     }
-
-    if (file == null) {
-      return;
-    }
-
-    final bytes = await file.readAsBytes();
-    if (bytes.isEmpty) {
-      return;
-    }
-
-    final mimeType = _inferMimeType(file.path);
-    setState(() {
-      _pendingImageBytes = bytes;
-      _pendingImageMime = mimeType;
-    });
   }
 
   Future<void> _toggleListening(BuildContext context) async {

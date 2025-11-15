@@ -4,13 +4,16 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:healthbuddy_ai/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:intl/intl.dart';
 import 'package:model_viewer_plus/model_viewer_plus.dart';
+import 'package:isar/isar.dart';
+import 'package:healthbuddy_ai/l10n/app_localizations.dart';
 
 import '../core/app_assets.dart';
 import '../models/chat_message.dart';
+import '../models/chat_session.dart';
 import '../providers/app_providers.dart';
 import '../screens/settings_screen.dart';
 import '../widgets/chat_input_widget.dart';
@@ -29,14 +32,11 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final ScrollController _scrollController = ScrollController();
+  Id? _lastHandledSessionId;
 
   @override
   void initState() {
     super.initState();
-    Future.microtask(() async {
-      await _loadHistory();
-      await _ensureGreeting();
-    });
   }
 
   @override
@@ -45,13 +45,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.dispose();
   }
 
-  Future<void> _loadHistory() async {
+  void _handleSessionReady(ChatSession session) {
+    if (_lastHandledSessionId == session.id) {
+      return;
+    }
+    _lastHandledSessionId = session.id;
+    Future.microtask(() async {
+      await _loadHistory(session.id);
+      await _ensureGreeting(session);
+    });
+  }
+
+  Future<void> _loadHistory(Id sessionId) async {
     final repository = ref.read(chatRepositoryProvider);
-    final history = await repository.getAll();
+    final history = await repository.getAll(sessionId: sessionId);
     ref.read(chatListProvider.notifier).state = history;
   }
 
-  Future<void> _ensureGreeting() async {
+  Future<void> _ensureGreeting(ChatSession session) async {
     if (!mounted) {
       return;
     }
@@ -69,6 +80,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final greetingText =
           await ref.read(geminiServiceProvider).getChatResponse(
                 l10n.greetingPrompt,
+                sessionId: session.id,
                 repository: repository,
               );
 
@@ -78,7 +90,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
 
       chatNotifier.state = [...chatNotifier.state, greetingMessage];
-      await repository.save(greetingMessage);
+      await repository.save(greetingMessage, sessionId: session.id);
       chatNotifier.state = [...chatNotifier.state];
     } catch (_) {
       final fallback = ChatMessage(
@@ -86,7 +98,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         isFromUser: false,
       );
       chatNotifier.state = [...chatNotifier.state, fallback];
-      await repository.save(fallback);
+      await repository.save(fallback, sessionId: session.id);
       chatNotifier.state = [...chatNotifier.state];
     } finally {
       ref.read(isAiThinkingProvider.notifier).state = false;
@@ -95,15 +107,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _startNewSession() async {
-    final repository = ref.read(chatRepositoryProvider);
     await ref.read(ttsServiceProvider).stop();
-    await repository.clear();
     ref.read(chatListProvider.notifier).state = <ChatMessage>[];
     ref.read(isAiThinkingProvider.notifier).state = false;
     ref.read(animationProvider.notifier).state = 'Idle';
-    if (mounted) {
-      await _ensureGreeting();
+    final notifier = ref.read(activeSessionProvider.notifier);
+    await notifier.startNewSession();
+    ref.read(chatListProvider.notifier).state = <ChatMessage>[];
+  }
+
+  Future<void> _selectSession(ChatSession session) async {
+    ref.read(chatListProvider.notifier).state = <ChatMessage>[];
+    await ref.read(activeSessionProvider.notifier).selectSession(session.id);
+  }
+
+  Future<void> _showSessionHistory() async {
+    if (!mounted) {
+      return;
     }
+    ref.invalidate(sessionListProvider);
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (modalContext) {
+        return _SessionHistorySheet(
+          onSelectSession: (session) async {
+            Navigator.of(modalContext).pop();
+            await _selectSession(session);
+          },
+          onCreateSession: () async {
+            Navigator.of(modalContext).pop();
+            await _startNewSession();
+          },
+        );
+      },
+    );
   }
 
   void _scrollToBottom() {
@@ -122,8 +160,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    ref.listen<AsyncValue<ChatSession>>(
+      activeSessionProvider,
+      (previous, next) {
+        next.whenData(_handleSessionReady);
+      },
+    );
     final messages = ref.watch(chatListProvider);
     final isThinking = ref.watch(isAiThinkingProvider);
+    final sessionState = ref.watch(activeSessionProvider);
+    final activeSession = sessionState.maybeWhen(
+      data: (session) => session,
+      orElse: () => null,
+    );
+    final sessionError = sessionState.maybeWhen<Object?>(
+      error: (error, _) => error,
+      orElse: () => null,
+    );
+    final isSessionLoading = sessionState.isLoading;
     final brightness = Theme.of(context).brightness;
     final iconColor = Theme.of(context).iconTheme.color ??
         (brightness == Brightness.dark ? Colors.white : Colors.black87);
@@ -146,8 +200,51 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text(l10n.appTitle),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(l10n.appTitle),
+            Text(
+              'あなたの健康仲間',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w300,
+                    color: iconColor.withOpacity(0.8),
+                  ),
+            ),
+            if (activeSession != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  activeSession.title,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: iconColor.withOpacity(0.75),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+          ],
+        ),
         actions: [
+          IconButton(
+            tooltip: l10n.chatHistoryTooltip,
+            onPressed: _showSessionHistory,
+            icon: Icon(Icons.history, color: iconColor.withOpacity(0.9)),
+          ),
+          IconButton(
+            tooltip: l10n.newSessionTooltip,
+            onPressed: _startNewSession,
+            icon: SvgPicture.asset(
+              AppAssets.iconReset,
+              width: 22,
+              height: 22,
+              colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+            ),
+          ),
           IconButton(
             tooltip: l10n.settingsTitle,
             onPressed: () {
@@ -162,16 +259,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
             ),
           ),
-          IconButton(
-            tooltip: l10n.newSessionTooltip,
-            onPressed: _startNewSession,
-            icon: SvgPicture.asset(
-              AppAssets.iconReset,
-              width: 22,
-              height: 22,
-              colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
-            ),
-          ),
           const SizedBox(width: 4),
           const Padding(
             padding: EdgeInsets.only(right: 16),
@@ -179,92 +266,443 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ],
       ),
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: Image.asset(
-              AppAssets.bgMain,
-              fit: BoxFit.cover,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final backgroundLayers = <Widget>[
+            Positioned.fill(
+              child: Image.asset(
+                AppAssets.bgMain,
+                fit: BoxFit.cover,
+              ),
             ),
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: overlayGradient,
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                ),
+              ),
+            ),
+          ];
+
+          if (constraints.maxWidth < 600) {
+            return Stack(
+              children: [
+                ...backgroundLayers,
+                SafeArea(
+                  child: Column(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 16),
+                          child: Align(
+                            alignment: Alignment.topCenter,
+                            child: FractionallySizedBox(
+                              widthFactor: 0.8,
+                              heightFactor: 0.9,
+                              child: _BackgroundAvatar(isThinking: isThinking),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 3,
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: _buildChatInterface(
+                            isThinking: isThinking,
+                            isSessionLoading: isSessionLoading,
+                            sessionError: sessionError,
+                            onRetrySession: () =>
+                              ref.read(activeSessionProvider.notifier).initialize(),
+                            l10n: l10n,
+                            messages: messages,
+                            chatPanelColor: chatPanelColor,
+                            chatBorderColor: chatBorderColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          }
+
+          return Stack(
+            children: [
+              ...backgroundLayers,
+              Align(
+                alignment: Alignment.center,
+                child: FractionallySizedBox(
+                  widthFactor: 0.32,
+                  heightFactor: 0.6,
+                  alignment: Alignment.center,
+                  child: _BackgroundAvatar(isThinking: isThinking),
+                ),
+              ),
+              Positioned.fill(
+                child: SafeArea(
+                  child: _buildChatInterface(
+                    isThinking: isThinking,
+                    isSessionLoading: isSessionLoading,
+                    sessionError: sessionError,
+                    onRetrySession: () =>
+                      ref.read(activeSessionProvider.notifier).initialize(),
+                    l10n: l10n,
+                    messages: messages,
+                    chatPanelColor: chatPanelColor,
+                    chatBorderColor: chatBorderColor,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildChatInterface({
+    required bool isThinking,
+    required bool isSessionLoading,
+    required Object? sessionError,
+    required VoidCallback onRetrySession,
+    required AppLocalizations l10n,
+    required List<ChatMessage> messages,
+    required Color chatPanelColor,
+    required Color chatBorderColor,
+  }) {
+    return Column(
+      children: [
+        Expanded(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: chatPanelColor,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: chatBorderColor, width: 1),
+            ),
+            child: sessionError != null
+              ? _SessionErrorView(
+                error: sessionError,
+                l10n: l10n,
+                onRetry: onRetrySession,
+                )
+                : isSessionLoading
+                    ? const _SessionLoadingView()
+                    : messages.isEmpty
+                        ? const _EmptyChatView()
+                        : ListView.builder(
+                            controller: _scrollController,
+                            reverse: true,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            physics: const BouncingScrollPhysics(),
+                            itemCount: messages.length + (isThinking ? 1 : 0),
+                            itemBuilder: (context, index) {
+                              if (isThinking && index == 0) {
+                                return const _AiTypingBubble();
+                              }
+                              final effectiveIndex = isThinking ? index - 1 : index;
+                              final message =
+                                  messages[messages.length - 1 - effectiveIndex];
+                              return ChatMessageBubble(message: message);
+                            },
+                          ),
           ),
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: overlayGradient,
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
+        ),
+        const SizedBox(height: 12),
+        const ChatInputWidget(),
+      ],
+    );
+  }
+}
+
+class _SessionLoadingView extends StatelessWidget {
+  const _SessionLoadingView();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: SizedBox(
+        height: 48,
+        width: 48,
+        child: CircularProgressIndicator(),
+      ),
+    );
+  }
+}
+
+class _EmptyChatView extends StatelessWidget {
+  const _EmptyChatView();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SvgPicture.asset(
+              AppAssets.illEmptyState,
+              height: 150,
+            ),
+            const SizedBox(height: 20),
+            const CircularProgressIndicator(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SessionErrorView extends StatelessWidget {
+  const _SessionErrorView({
+    required this.error,
+    required this.l10n,
+    required this.onRetry,
+  });
+
+  final Object? error;
+  final AppLocalizations l10n;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final errorDescription = error?.toString() ?? '';
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 48,
+              color: theme.colorScheme.error,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              l10n.sessionLoadError,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: theme.colorScheme.error,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (errorDescription.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                errorDescription,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: Text(l10n.retryLabel),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SessionHistorySheet extends ConsumerWidget {
+  const _SessionHistorySheet({
+    required this.onSelectSession,
+    required this.onCreateSession,
+  });
+
+  final ValueChanged<ChatSession> onSelectSession;
+  final Future<void> Function() onCreateSession;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final locale = Localizations.localeOf(context);
+    final sessionsAsync = ref.watch(sessionListProvider);
+    final activeSession = ref.watch(activeSessionProvider).maybeWhen(
+          data: (session) => session,
+          orElse: () => null,
+        );
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: Container(
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 16,
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            child: sessionsAsync.when(
+              data: (sessions) {
+                final sortedSessions = List<ChatSession>.from(sessions)
+                  ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: theme.dividerColor.withOpacity(0.6),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      l10n.chatHistoryTooltip,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    if (sortedSessions.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 28),
+                        child: Text(
+                          l10n.chatHistoryEmpty,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.7),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      )
+                    else
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 360),
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: sortedSessions.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 8),
+                          itemBuilder: (context, index) {
+                            final session = sortedSessions[index];
+                            final isActive = activeSession?.id == session.id;
+                            final subtitle = _formatTimestamp(session.createdAt, locale);
+                            return ListTile(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              leading: Icon(
+                                isActive ? Icons.chat_bubble : Icons.chat_bubble_outline,
+                                color: isActive
+                                    ? theme.colorScheme.primary
+                                    : theme.iconTheme.color?.withOpacity(0.8),
+                              ),
+                              title: Text(
+                                session.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Text(subtitle),
+                              trailing: isActive
+                                  ? Icon(Icons.check_circle,
+                                      color: theme.colorScheme.primary)
+                                  : null,
+                              selected: isActive,
+                              selectedTileColor:
+                                  theme.colorScheme.primary.withOpacity(0.12),
+                              onTap: () => onSelectSession(session),
+                            );
+                          },
+                        ),
+                      ),
+                    const SizedBox(height: 20),
+                    FilledButton.icon(
+                      onPressed: onCreateSession,
+                      icon: const Icon(Icons.add),
+                      label: Text(l10n.newSessionTooltip),
+                    ),
+                  ],
+                );
+              },
+              loading: () => const SizedBox(
+                height: 200,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (error, _) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      size: 42,
+                      color: theme.colorScheme.error,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      l10n.sessionLoadError,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: theme.colorScheme.error,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      error.toString(),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: () => ref
+                          .read(activeSessionProvider.notifier)
+                          .refreshSessions(),
+                      icon: const Icon(Icons.refresh),
+                      label: Text(l10n.retryLabel),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-          Center(
-            child: _BackgroundAvatar(isThinking: isThinking),
-          ),
-          Positioned.fill(
-            child: SafeArea(
-              child: Column(
-                children: [
-                  Expanded(
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: BoxDecoration(
-                        color: chatPanelColor,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: chatBorderColor, width: 1),
-                      ),
-                      child: messages.isEmpty
-                          ? Center(
-                              child: SingleChildScrollView(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                  vertical: 32,
-                                ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    SvgPicture.asset(
-                                      AppAssets.illEmptyState,
-                                      height: 150,
-                                    ),
-                                    const SizedBox(height: 20),
-                                    const CircularProgressIndicator(),
-                                  ],
-                                ),
-                              ),
-                            )
-                          : ListView.builder(
-                              controller: _scrollController,
-                              reverse: true,
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              physics: const BouncingScrollPhysics(),
-                              itemCount: messages.length + (isThinking ? 1 : 0),
-                              itemBuilder: (context, index) {
-                                if (isThinking && index == 0) {
-                                  return const _AiTypingBubble();
-                                }
-                                final effectiveIndex =
-                                    isThinking ? index - 1 : index;
-                                final message = messages[
-                                    messages.length - 1 - effectiveIndex];
-                                return ChatMessageBubble(message: message);
-                              },
-                            ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const ChatInputWidget(),
-                ],
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
+  }
+
+  String _formatTimestamp(DateTime timestamp, Locale locale) {
+    final localeTag = _localeTag(locale);
+    final formatter = DateFormat.yMMMd(localeTag).add_Hm();
+    return formatter.format(timestamp);
+  }
+
+  String _localeTag(Locale locale) {
+    final country = locale.countryCode;
+    if (country == null || country.isEmpty) {
+      return locale.languageCode;
+    }
+    return '${locale.languageCode}_$country';
   }
 }
 
@@ -390,16 +828,13 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
       );
     }
 
-    return SizedBox(
-      width: 380,
-      height: 580,
+    return SizedBox.expand(
       child: ModelViewer(
         key: ValueKey('${modelSrc}_${widget.isThinking}'),
         src: modelSrc,
         alt: 'AI Avatar',
-        autoPlay: false,
+        autoPlay: true,
         autoRotate: false,
-        animationName: _idleAnimationName,
         cameraControls: false,
         disablePan: true,
         disableTap: true,
@@ -411,9 +846,10 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
         exposure: 1.1,
         shadowIntensity: 0.6,
         shadowSoftness: 0.8,
-        cameraOrbit: '0deg 65deg 4.4m',
-        cameraTarget: '0m 1.2m 0m',
-        fieldOfView: '52deg',
+        orientation: '0 0 180deg',
+        cameraOrbit: '180deg 70deg 4.6m',
+        cameraTarget: '0m 1.45m 0m',
+        fieldOfView: '40deg',
         backgroundColor: Colors.transparent,
         poster: posterSrc,
         id: _viewerElementId,

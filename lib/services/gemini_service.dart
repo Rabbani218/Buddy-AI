@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:isar/isar.dart';
 
 import '../constants/api_key.dart';
 import '../models/chat_message.dart';
@@ -9,17 +10,20 @@ import '../repositories/chat_repository.dart';
 import 'simulated_ai_service.dart';
 
 class GeminiService {
-  GeminiService({String? apiKey}) : _apiKey = (apiKey ?? geminiApiKey).trim();
+  GeminiService({String? apiKey, ChatRepository? repository})
+      : _apiKey = (apiKey ?? geminiApiKey).trim(),
+        _repository = repository;
 
   final String _apiKey;
+  final ChatRepository? _repository;
   GenerativeModel? _model;
 
   static const String _personaInstruction =
-      'Kamu adalah HealthBuddy, seorang asisten kesehatan digital yang ramah, '
-      'suportif, dan memberikan saran kesehatan umum tanpa menggantikan dokter. '
-      'Jawablah dalam bahasa Indonesia yang mudah dipahami, singkat namun empatik, '
-      'dan selalu ingatkan pengguna untuk berkonsultasi ke tenaga medis profesional '
-      'jika keluhan serius.';
+      'Kamu adalah HealthBuddy, seorang asisten kesehatan AI yang sangat ramah, '
+      'empatik, dan suportif. Tujuanmu adalah membantu pengguna merasa lebih baik '
+      'secara mental dan fisik. Gunakan bahasa yang hangat dan kasual (sedikit '
+      'slang tidak apa-apa), berikan respons yang memotivasi tanpa menghakimi, '
+      'sertakan saran praktis, dan selalu mulai percakapan dengan sapaan yang ramah.';
 
   bool get _hasValidKey =>
       _apiKey.isNotEmpty && _apiKey != 'API_KEY_KAMU_DI_SINI';
@@ -34,10 +38,17 @@ class GeminiService {
 
   Future<String> getChatResponse(
     String prompt, {
-    required ChatRepository repository,
+    required Id sessionId,
+    ChatRepository? repository,
     List<int>? imageBytes,
     String mimeType = 'image/jpeg',
   }) async {
+    final effectiveRepository = repository ?? _repository;
+    if (effectiveRepository == null) {
+      throw const GeminiServiceException(
+        'Chat repository is required to build conversation context.',
+      );
+    }
     if (!_hasValidKey) {
       return SimulatedAiService().getResponse(prompt);
     }
@@ -45,7 +56,8 @@ class GeminiService {
     try {
       await for (final chunk in streamChatResponse(
         prompt,
-        repository: repository,
+        sessionId: sessionId,
+        repository: effectiveRepository,
         imageBytes: imageBytes,
         mimeType: mimeType,
       )) {
@@ -69,7 +81,8 @@ class GeminiService {
 
   Stream<String> streamChatResponse(
     String prompt, {
-    required ChatRepository repository,
+    required Id sessionId,
+    ChatRepository? repository,
     List<int>? imageBytes,
     String mimeType = 'image/jpeg',
   }) {
@@ -77,11 +90,21 @@ class GeminiService {
       return _simulateStreamDirect(prompt);
     }
 
+    final effectiveRepository = repository ?? _repository;
+    if (effectiveRepository == null) {
+      return Stream.error(
+        const GeminiServiceException(
+          'Chat repository is required to build conversation context.',
+        ),
+      );
+    }
+
     final controller = StreamController<String>();
 
     () async {
       try {
-        final historyContent = await _buildHistoryContent(repository);
+        final historyContent =
+            await _buildHistoryContent(effectiveRepository, sessionId);
 
         final requestContent = _contentFromUser(
           prompt,
@@ -212,8 +235,12 @@ class GeminiService {
     return text.isEmpty ? null : text;
   }
 
-  Future<List<Content>> _buildHistoryContent(ChatRepository repository) async {
-    final historyMessages = await repository.getRecent(limit: 20);
+  Future<List<Content>> _buildHistoryContent(
+    ChatRepository repository,
+    Id sessionId,
+  ) async {
+    final historyMessages =
+        await repository.getAll(sessionId: sessionId);
 
     if (historyMessages.isEmpty) {
       return const [];
@@ -277,6 +304,59 @@ class GeminiService {
     final data = bytes is Uint8List ? bytes : Uint8List.fromList(bytes);
     return DataPart(mimeType, data);
   }
+
+  Future<String> sendMessage({
+    required String prompt,
+    required Id sessionId,
+    Uint8List? imageBytes,
+  }) async {
+    if (!_hasValidKey) {
+      return SimulatedAiService().getResponse(prompt);
+    }
+
+    final effectiveRepository = _repository;
+    final history = effectiveRepository != null
+        ? await _buildHistoryContent(effectiveRepository, sessionId)
+        : const <Content>[];
+
+    final trimmedPrompt = prompt.trim();
+    final content = _contentFromUser(
+      trimmedPrompt,
+      imageBytes: imageBytes?.toList(growable: false),
+      mimeType: 'image/jpeg',
+    );
+
+    try {
+      final chat = _ensureModel().startChat(history: history);
+      final response = await chat.sendMessage(content);
+      final feedback = response.promptFeedback;
+      if (feedback?.blockReason != null) {
+        throw const GeminiSafetyException(
+          'Maaf, respons AI diblokir oleh sistem keamanan Gemini. Coba modifikasi pertanyaannya.',
+        );
+      }
+
+      final text = response.text?.trim();
+      if (text == null || text.isEmpty) {
+        return SimulatedAiService().getResponse(prompt);
+      }
+      return text;
+    } on GeminiSafetyException {
+      rethrow;
+    } on GenerativeAIException catch (error) {
+      if (_isNotFoundError(error.message)) {
+        return SimulatedAiService().getResponse(prompt);
+      }
+      throw GeminiServiceException(error.message);
+    } catch (error) {
+      final message = error.toString();
+      if (_isNotFoundError(message)) {
+        return SimulatedAiService().getResponse(prompt);
+      }
+      throw GeminiServiceException(message);
+    }
+  }
+
 }
 
 class GeminiServiceException implements Exception {

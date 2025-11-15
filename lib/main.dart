@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:healthbuddy_ai/l10n/app_localizations.dart';
@@ -5,16 +6,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'constants/storage_keys.dart';
 import 'providers/app_providers.dart';
-import 'repositories/chat_repository.dart';
-import 'repositories/preferences_chat_repository.dart';
 import 'screens/home_screen.dart';
+import 'services/isar_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final prefs = await SharedPreferences.getInstance();
-  final ChatRepository chatRepository = PreferencesChatRepository(prefs);
+  final isar = kIsWeb ? null : await initIsar();
   final savedLocaleCode = prefs.getString(localeStorageKey);
+  final savedThemeMode = prefs.getString(themeModeStorageKey);
   Locale? initialLocale;
   if (savedLocaleCode != null && savedLocaleCode.isNotEmpty) {
     final parts = savedLocaleCode.split('_');
@@ -22,13 +23,25 @@ Future<void> main() async {
     final countryCode = parts.length > 1 ? parts[1] : null;
     initialLocale = Locale(languageCode, countryCode);
   }
+  final ThemeMode initialThemeMode = _themeModeFromString(savedThemeMode);
+
+  final overrides = <Override>[
+    localeProvider.overrideWith((ref) => initialLocale),
+    themeProvider.overrideWith((ref) => initialThemeMode),
+  ];
+
+  if (!kIsWeb && isar != null) {
+    overrides.add(
+      isarProvider.overrideWith((ref) {
+        ref.onDispose(() => isar.close());
+        return isar;
+      }),
+    );
+  }
 
   runApp(
     ProviderScope(
-      overrides: [
-        chatRepositoryProvider.overrideWithValue(chatRepository),
-        localeProvider.overrideWith((ref) => initialLocale),
-      ],
+      overrides: overrides,
       child: const MyApp(),
     ),
   );
@@ -42,10 +55,11 @@ class MyApp extends ConsumerWidget {
     final lightTheme = _buildLightTheme();
     final darkTheme = _buildDarkTheme();
     final locale = ref.watch(localeProvider);
+    final themeMode = ref.watch(themeProvider);
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'HealthBuddy AI',
-      themeMode: ThemeMode.system,
+      themeMode: themeMode,
       theme: lightTheme,
       darkTheme: darkTheme,
       locale: locale,
@@ -127,5 +141,17 @@ class MyApp extends ConsumerWidget {
         hintStyle: TextStyle(color: Colors.white70),
       ),
     );
+  }
+}
+
+ThemeMode _themeModeFromString(String? value) {
+  switch (value) {
+    case 'light':
+      return ThemeMode.light;
+    case 'dark':
+      return ThemeMode.dark;
+    case 'system':
+    default:
+      return ThemeMode.system;
   }
 }

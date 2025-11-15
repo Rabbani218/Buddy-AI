@@ -1,56 +1,42 @@
-import 'dart:convert';
+import 'package:isar/isar.dart';
 
+import 'chat_session.dart';
+
+part 'chat_message.g.dart';
+
+@collection
 class ChatMessage {
   ChatMessage({
-    this.id,
     required this.text,
     required this.isFromUser,
-    DateTime? timestamp,
-    this.imageBytes,
-  }) : timestamp = timestamp ?? DateTime.now();
+    DateTime? createdAt,
+    List<int>? imageBytes,
+  }) {
+    timestamp = createdAt ?? DateTime.now();
+    this.imageBytes = imageBytes;
+  }
 
-  int? id;
+  Id id = Isar.autoIncrement;
   String text;
   bool isFromUser;
-  DateTime timestamp;
+  DateTime timestamp = DateTime.now();
   List<int>? imageBytes;
+  final session = IsarLink<ChatSession>();
 
   ChatMessage copyWith({
-    int? id,
+    Id? id,
     String? text,
     bool? isFromUser,
     DateTime? timestamp,
     List<int>? imageBytes,
   }) {
-    return ChatMessage(
-      id: id ?? this.id,
+    final updated = ChatMessage(
       text: text ?? this.text,
       isFromUser: isFromUser ?? this.isFromUser,
-      timestamp: timestamp ?? this.timestamp,
       imageBytes: imageBytes ?? this.imageBytes,
     );
-  }
-
-  Map<String, dynamic> toMap() {
-    return <String, dynamic>{
-      'id': id,
-      'text': text,
-      'isFromUser': isFromUser,
-      'timestamp': timestamp.toIso8601String(),
-      'image': imageBytes != null ? base64Encode(imageBytes!) : null,
-    };
-  }
-
-  static ChatMessage fromMap(Map<String, dynamic> map) {
-    return ChatMessage(
-      id: map['id'] as int?,
-      text: (map['text'] as String?) ?? '',
-      isFromUser: map['isFromUser'] as bool? ?? false,
-      timestamp: map['timestamp'] != null
-          ? DateTime.tryParse(map['timestamp'] as String) ?? DateTime.now()
-          : DateTime.now(),
-      imageBytes:
-          map['image'] != null ? base64Decode(map['image'] as String) : null,
-    );
+    updated.id = id ?? this.id;
+    updated.timestamp = timestamp ?? this.timestamp;
+    return updated;
   }
 }

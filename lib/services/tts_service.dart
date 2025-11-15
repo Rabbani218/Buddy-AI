@@ -2,14 +2,22 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../constants/storage_keys.dart';
 
 class TtsService {
   TtsService() : _flutterTts = FlutterTts();
+
+  static const double _minSpeechRate = 0.1;
+  static const double _maxSpeechRate = 1.0;
+  static const double _defaultSpeechRate = 0.5;
 
   final FlutterTts _flutterTts;
   bool _isConfigured = false;
   String? _activeLanguage;
   Locale? _requestedLocale;
+  double? _cachedSpeechRate;
 
   Future<void> _configure() async {
     if (_isConfigured) {
@@ -22,7 +30,7 @@ class TtsService {
     }
     await _flutterTts.awaitSpeakCompletion(true);
     await _flutterTts.setPitch(1.02);
-    await _flutterTts.setSpeechRate(0.42);
+    await _applyStoredSpeechRate();
     await _flutterTts.setVolume(0.9);
   }
 
@@ -54,6 +62,7 @@ class TtsService {
     if (_activeLanguage == null) {
       await updateLocale(_requestedLocale);
     }
+    await _applyStoredSpeechRate();
     await _flutterTts.stop();
     await _flutterTts.speak(trimmed);
   }
@@ -115,5 +124,21 @@ class TtsService {
       }
     }
     return '$language-$country';
+  }
+
+  Future<void> _applyStoredSpeechRate() async {
+    final rate = await _loadStoredSpeechRate();
+    if (_cachedSpeechRate == rate) {
+      return;
+    }
+    _cachedSpeechRate = rate;
+    await _flutterTts.setSpeechRate(rate);
+  }
+
+  Future<double> _loadStoredSpeechRate() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getDouble(ttsRateStorageKey);
+    final rate = stored ?? _defaultSpeechRate;
+    return rate.clamp(_minSpeechRate, _maxSpeechRate).toDouble();
   }
 }

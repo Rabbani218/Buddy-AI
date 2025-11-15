@@ -90,4 +90,19 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get replayLabel => 'Putar ulang';
+
+  @override
+  String get chatHistoryTooltip => 'Riwayat sesi';
+
+  @override
+  String get chatHistoryEmpty => 'Belum ada sesi. Mulai percakapan baru untuk melihatnya di sini.';
+
+  @override
+  String get sessionLoadError => 'Riwayat sesi tidak dapat dimuat. Coba lagi.';
+
+  @override
+  String get retryLabel => 'Coba lagi';
+
+  @override
+  String get sessionNotReady => 'Sesi masih dimuat. Tunggu sebentar.';
 }

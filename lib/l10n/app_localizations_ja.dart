@@ -90,4 +90,19 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get replayLabel => '再生';
+
+  @override
+  String get chatHistoryTooltip => 'セッション履歴';
+
+  @override
+  String get chatHistoryEmpty => 'まだセッションがありません。新しい会話を始めるとここに表示されます。';
+
+  @override
+  String get sessionLoadError => 'セッションを読み込めませんでした。もう一度お試しください。';
+
+  @override
+  String get retryLabel => '再試行';
+
+  @override
+  String get sessionNotReady => 'セッションを読み込み中です。しばらくお待ちください。';
 }
