@@ -296,21 +296,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: Column(
                     children: [
                       Expanded(
-                        flex: 2,
+                        flex: 4,
                         child: Padding(
                           padding: const EdgeInsets.only(top: 16),
                           child: Align(
                             alignment: Alignment.topCenter,
                             child: FractionallySizedBox(
-                              widthFactor: 0.8,
-                              heightFactor: 0.9,
+                              widthFactor: 0.9,
+                              heightFactor: 1.0,
                               child: _BackgroundAvatar(isThinking: isThinking),
                             ),
                           ),
                         ),
                       ),
                       Expanded(
-                        flex: 3,
+                        flex: 2,
                         child: Padding(
                           padding: const EdgeInsets.only(top: 8),
                           child: _buildChatInterface(
@@ -339,8 +339,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Align(
                 alignment: Alignment.center,
                 child: FractionallySizedBox(
-                  widthFactor: 0.32,
-                  heightFactor: 0.6,
+                  widthFactor: 0.4,
+                  heightFactor: 0.8,
                   alignment: Alignment.center,
                   child: _BackgroundAvatar(isThinking: isThinking),
                 ),
@@ -828,32 +828,31 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
       );
     }
 
-    return SizedBox.expand(
-      child: ModelViewer(
-        key: ValueKey('${modelSrc}_${widget.isThinking}'),
-        src: modelSrc,
-        alt: 'AI Avatar',
-        autoPlay: true,
-        autoRotate: false,
-        cameraControls: false,
-        disablePan: true,
-        disableTap: true,
-        disableZoom: true,
-        ar: false,
-        loading: Loading.eager,
-        reveal: Reveal.auto,
-        environmentImage: 'neutral',
-        exposure: 1.1,
-        shadowIntensity: 0.6,
-        shadowSoftness: 0.8,
-        orientation: '0 0 180deg',
-        cameraOrbit: '180deg 70deg 4.6m',
-        cameraTarget: '0m 1.45m 0m',
-        fieldOfView: '40deg',
-        backgroundColor: Colors.transparent,
-        poster: posterSrc,
-        id: _viewerElementId,
-      ),
+    return ModelViewer(
+      key: ValueKey('${modelSrc}_${widget.isThinking}'),
+      src: modelSrc,
+      alt: 'AI Avatar',
+      autoPlay: false,
+      animationName: null,
+      autoRotate: false,
+      cameraControls: false,
+      disablePan: true,
+      disableTap: true,
+      disableZoom: true,
+      ar: false,
+      loading: Loading.eager,
+      reveal: Reveal.auto,
+      environmentImage: 'neutral',
+      exposure: 1.1,
+      shadowIntensity: 0.6,
+      shadowSoftness: 0.8,
+      interactionPrompt: InteractionPrompt.none,
+      cameraOrbit: '0deg 75deg 6m',
+      fieldOfView: '45deg',
+      cameraTarget: '0m 2.0m 0m',
+      backgroundColor: Colors.transparent,
+      poster: posterSrc,
+      id: _viewerElementId,
     );
   }
 
