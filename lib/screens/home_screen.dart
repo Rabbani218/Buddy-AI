@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
@@ -301,9 +302,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           padding: const EdgeInsets.only(top: 16),
                           child: Align(
                             alignment: Alignment.topCenter,
-                            child: FractionallySizedBox(
-                              widthFactor: 0.9,
-                              heightFactor: 1.0,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 550),
+                              curve: Curves.easeOutCubic,
+                              width:
+                                  math.min(constraints.maxWidth * 0.9, 440.0),
+                              height: math.min(
+                                constraints.maxHeight * 0.52,
+                                460.0,
+                              ),
                               child: _BackgroundAvatar(isThinking: isThinking),
                             ),
                           ),
@@ -338,10 +345,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ...backgroundLayers,
               Align(
                 alignment: Alignment.center,
-                child: FractionallySizedBox(
-                  widthFactor: 0.4,
-                  heightFactor: 0.8,
-                  alignment: Alignment.center,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 550),
+                  curve: Curves.easeOutCubic,
+                  width: math.min(constraints.maxWidth * 0.5, 560.0),
+                  height: math.min(constraints.maxHeight * 0.8, 640.0),
                   child: _BackgroundAvatar(isThinking: isThinking),
                 ),
               ),
@@ -717,26 +725,28 @@ class _BackgroundAvatar extends StatefulWidget {
 
 class _BackgroundAvatarState extends State<_BackgroundAvatar> {
   static const String _viewerElementId = 'background-avatar-viewer';
-  static const Duration _animationRetryDelay = Duration(milliseconds: 150);
-  static const int _maxAnimationRetries = 8;
   String? _modelSrc;
   String? _posterSrc;
   bool _isLoading = kIsWeb;
   String? _modelObjectUrl;
   String? _posterObjectUrl;
+  List<String> _availableAnimations = const [];
   String? _idleAnimationName;
   String? _thinkingAnimationName;
+  String? _currentAnimationName;
+  bool _isAnimationInitialized = false;
+  bool _isSyncScheduled = false;
 
   @override
   void initState() {
     super.initState();
+    _resetAnimationCache();
     if (kIsWeb) {
       _prepareWebAssets();
     } else {
       _modelSrc = AppAssets.aiAvatar;
       _posterSrc = AppAssets.aiAvatarPoster;
       _isLoading = false;
-      _resetAnimationCache();
     }
     WidgetsBinding.instance.addPostFrameCallback((_) => _syncAnimationState());
   }
@@ -789,12 +799,12 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
 
       _disposeObjectUrls();
       setState(() {
+        _resetAnimationCache();
         _modelSrc = modelUri;
         _posterSrc = posterUri;
         _isLoading = false;
         _modelObjectUrl = _isObjectUrl(modelUri) ? modelUri : null;
         _posterObjectUrl = _isObjectUrl(posterUri) ? posterUri : null;
-        _resetAnimationCache();
       });
       WidgetsBinding.instance
           .addPostFrameCallback((_) => _syncAnimationState());
@@ -806,7 +816,6 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
         _isLoading = false;
         _modelSrc = AppAssets.aiAvatar;
         _posterSrc = AppAssets.aiAvatarPoster;
-        _resetAnimationCache();
       });
       WidgetsBinding.instance
           .addPostFrameCallback((_) => _syncAnimationState());
@@ -829,11 +838,12 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
     }
 
     return ModelViewer(
-      key: ValueKey('${modelSrc}_${widget.isThinking}'),
+      key: ValueKey(modelSrc),
       src: modelSrc,
       alt: 'AI Avatar',
       autoPlay: true,
-      animationName: null,
+      animationName:
+          _currentAnimationName ?? _idleAnimationName ?? 'BreathingIdle',
       autoRotate: false,
       cameraControls: false,
       disablePan: true,
@@ -847,9 +857,9 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
       shadowIntensity: 0.6,
       shadowSoftness: 0.8,
       interactionPrompt: InteractionPrompt.none,
-      cameraOrbit: '0deg 75deg 3m',
-      fieldOfView: '45deg',
-      cameraTarget: '0m 1.2m 0m',
+      cameraOrbit: '0deg 68deg 1.35m',
+      fieldOfView: '35deg',
+      cameraTarget: '0m 1.05m 0m',
       backgroundColor: Colors.transparent,
       poster: posterSrc,
       id: _viewerElementId,
@@ -857,77 +867,75 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
   }
 
   void _syncAnimationState() {
-    if (!kIsWeb) {
+    _isSyncScheduled = false;
+    if (!mounted || !kIsWeb) {
       return;
     }
+
     if (_modelSrc == null) {
+      _scheduleAnimationSync();
       return;
     }
-    void attempt(int retries) {
+
+    final animations = getAvatarAnimationNames(_viewerElementId);
+
+    if (animations == null) {
+      _scheduleAnimationSync();
+      return;
+    }
+
+    if (!listEquals(_availableAnimations, animations)) {
+      _availableAnimations = List<String>.from(animations);
+      _ensureAnimationPreferences(_availableAnimations);
+      _isAnimationInitialized = false;
+      _currentAnimationName = null;
+    }
+
+    final targetAnimation =
+        widget.isThinking ? _thinkingAnimationName : _idleAnimationName;
+
+    if (targetAnimation == null || targetAnimation.isEmpty) {
+      _scheduleAnimationSync();
+      return;
+    }
+
+    if (_isAnimationInitialized && _currentAnimationName == targetAnimation) {
+      return;
+    }
+
+    final played =
+        playAvatarAnimation(_viewerElementId, animationName: targetAnimation);
+
+    if (!played) {
+      _scheduleAnimationSync();
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    if (_currentAnimationName != targetAnimation ||
+        !_isAnimationInitialized) {
+      setState(() {
+        _currentAnimationName = targetAnimation;
+        _isAnimationInitialized = true;
+      });
+    }
+  }
+
+  void _scheduleAnimationSync() {
+    if (_isSyncScheduled || !mounted) {
+      return;
+    }
+    _isSyncScheduled = true;
+    Future.delayed(const Duration(milliseconds: 120), () {
       if (!mounted) {
         return;
       }
-      final animations = getAvatarAnimationNames(_viewerElementId);
-      if (animations == null || animations.isEmpty) {
-        if (retries > 0) {
-          Future<void>.delayed(
-            _animationRetryDelay,
-            () => attempt(retries - 1),
-          );
-        }
-        return;
-      }
-
-      _ensureAnimationPreferences(animations);
-
-      final targetAnimation = widget.isThinking
-          ? (_thinkingAnimationName ?? _idleAnimationName)
-          : _idleAnimationName;
-      if (targetAnimation == null) {
-        if (retries > 0) {
-          Future<void>.delayed(
-            _animationRetryDelay,
-            () => attempt(retries - 1),
-          );
-        }
-        return;
-      }
-
-      final success = playAvatarAnimation(
-        _viewerElementId,
-        animationName: targetAnimation,
-      );
-      if (!success && retries > 0) {
-        Future<void>.delayed(
-          _animationRetryDelay,
-          () => attempt(retries - 1),
-        );
-      }
-    }
-
-    attempt(_maxAnimationRetries);
-  }
-
-  void _ensureAnimationPreferences(List<String> animations) {
-    const idleAnimation = 'BreathingIdle';
-    const thinkingAnimation = 'Talking';
-
-    if (animations.contains(idleAnimation)) {
-      _idleAnimationName = idleAnimation;
-    } else if (animations.isNotEmpty) {
-      _idleAnimationName ??= animations.first;
-    }
-
-    if (animations.contains(thinkingAnimation)) {
-      _thinkingAnimationName = thinkingAnimation;
-    } else {
-      _thinkingAnimationName ??= _idleAnimationName;
-    }
-  }
-
-  void _resetAnimationCache() {
-    _idleAnimationName = null;
-    _thinkingAnimationName = null;
+      _isSyncScheduled = false;
+      _syncAnimationState();
+    });
   }
 
   void _disposeObjectUrls() {
@@ -942,6 +950,57 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
   }
 
   bool _isObjectUrl(String? url) => url != null && url.startsWith('blob:');
+
+  void _ensureAnimationPreferences(List<String> animations) {
+    _idleAnimationName = _matchAnimation(animations, 'BreathingIdle');
+    if (_idleAnimationName == null) {
+      debugPrint("PERINGATAN: Animasi 'BreathingIdle' tidak ditemukan!");
+      _idleAnimationName = animations.isNotEmpty ? animations.first : null;
+    }
+
+    _thinkingAnimationName = _matchAnimation(animations, 'Talking');
+    if (_thinkingAnimationName == null) {
+      debugPrint("PERINGATAN: Animasi 'Talking' tidak ditemukan!");
+      _thinkingAnimationName = _idleAnimationName;
+    }
+  }
+
+  String? _matchAnimation(List<String> animations, String target) {
+    if (animations.isEmpty) {
+      return null;
+    }
+    for (final animation in animations) {
+      if (animation == target) {
+        return animation;
+      }
+    }
+    final lowerTarget = target.toLowerCase();
+    for (final animation in animations) {
+      if (animation.toLowerCase() == lowerTarget) {
+        return animation;
+      }
+    }
+    for (final animation in animations) {
+      if (animation.toLowerCase().startsWith(lowerTarget)) {
+        return animation;
+      }
+    }
+    for (final animation in animations) {
+      if (animation.toLowerCase().contains(lowerTarget)) {
+        return animation;
+      }
+    }
+    return null;
+  }
+
+  void _resetAnimationCache() {
+    _availableAnimations = const [];
+    _idleAnimationName = null;
+    _thinkingAnimationName = null;
+    _currentAnimationName = null;
+    _isAnimationInitialized = false;
+    _isSyncScheduled = false;
+  }
 }
 
 class _AiTypingBubble extends StatelessWidget {
