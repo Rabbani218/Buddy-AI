@@ -299,16 +299,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       Expanded(
                         flex: 4,
                         child: Padding(
-                          padding: const EdgeInsets.only(top: 16),
+                          padding: const EdgeInsets.only(top: 4),
                           child: Align(
                             alignment: Alignment.topCenter,
                             child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 550),
+                              duration: const Duration(milliseconds: 380),
                               curve: Curves.easeOutCubic,
-                              width: math.min(constraints.maxWidth * 0.98, 520.0),
+                              width: math.min(constraints.maxWidth * 0.99, 660.0),
                               height: math.min(
-                                constraints.maxHeight * 0.58,
-                                520.0,
+                                constraints.maxHeight * 0.75,
+                                720.0,
                               ),
                               child: _BackgroundAvatar(isThinking: isThinking),
                             ),
@@ -343,12 +343,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             children: [
               ...backgroundLayers,
               Align(
-                alignment: Alignment.center,
+                alignment: Alignment.bottomCenter,
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 550),
+                  duration: const Duration(milliseconds: 380),
                   curve: Curves.easeOutCubic,
-                  width: math.min(constraints.maxWidth * 0.55, 680.0),
-                  height: math.min(constraints.maxHeight * 0.85, 720.0),
+                  width: math.min(constraints.maxWidth * 0.64, 900.0),
+                  height: math.min(constraints.maxHeight * 0.94, 920.0),
                   child: _BackgroundAvatar(isThinking: isThinking),
                 ),
               ),
@@ -837,7 +837,7 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
     }
 
     if (kIsWeb) {
-      _scheduleAnimationSync();
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleAnimationSync());
     }
 
     return ModelViewer(
@@ -860,9 +860,9 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
       shadowIntensity: 0.6,
       shadowSoftness: 0.8,
       interactionPrompt: InteractionPrompt.none,
-      cameraOrbit: '5deg 63deg 1.05m',
-      fieldOfView: '28deg',
-      cameraTarget: '0m 1.32m 0m',
+      cameraOrbit: '0deg 70deg 1.45m',
+      fieldOfView: '48deg',
+      cameraTarget: '0m 1.0m 0m',
       backgroundColor: Colors.transparent,
       poster: posterSrc,
       id: _viewerElementId,
@@ -919,12 +919,12 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
       return;
     }
 
-    if (_currentAnimationName != targetAnimation ||
-        !_isAnimationInitialized) {
-      setState(() {
-        _currentAnimationName = targetAnimation;
-        _isAnimationInitialized = true;
-      });
+    final changed = _currentAnimationName != targetAnimation;
+    _currentAnimationName = targetAnimation;
+    _isAnimationInitialized = true;
+
+    if (changed && mounted) {
+      setState(() {});
     }
   }
 
