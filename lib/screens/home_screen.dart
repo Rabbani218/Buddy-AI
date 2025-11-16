@@ -305,11 +305,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 550),
                               curve: Curves.easeOutCubic,
-                              width:
-                                  math.min(constraints.maxWidth * 0.9, 440.0),
+                              width: math.min(constraints.maxWidth * 0.98, 520.0),
                               height: math.min(
-                                constraints.maxHeight * 0.52,
-                                460.0,
+                                constraints.maxHeight * 0.58,
+                                520.0,
                               ),
                               child: _BackgroundAvatar(isThinking: isThinking),
                             ),
@@ -348,8 +347,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 550),
                   curve: Curves.easeOutCubic,
-                  width: math.min(constraints.maxWidth * 0.5, 560.0),
-                  height: math.min(constraints.maxHeight * 0.8, 640.0),
+                  width: math.min(constraints.maxWidth * 0.55, 680.0),
+                  height: math.min(constraints.maxHeight * 0.85, 720.0),
                   child: _BackgroundAvatar(isThinking: isThinking),
                 ),
               ),
@@ -837,6 +836,10 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
       );
     }
 
+    if (kIsWeb) {
+      _scheduleAnimationSync();
+    }
+
     return ModelViewer(
       key: ValueKey(modelSrc),
       src: modelSrc,
@@ -857,9 +860,9 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
       shadowIntensity: 0.6,
       shadowSoftness: 0.8,
       interactionPrompt: InteractionPrompt.none,
-      cameraOrbit: '0deg 68deg 1.35m',
-      fieldOfView: '35deg',
-      cameraTarget: '0m 1.05m 0m',
+      cameraOrbit: '5deg 63deg 1.05m',
+      fieldOfView: '28deg',
+      cameraTarget: '0m 1.32m 0m',
       backgroundColor: Colors.transparent,
       poster: posterSrc,
       id: _viewerElementId,
@@ -889,6 +892,7 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
       _ensureAnimationPreferences(_availableAnimations);
       _isAnimationInitialized = false;
       _currentAnimationName = null;
+      debugPrint('Avatar animations detected: ${_availableAnimations.join(', ')}');
     }
 
     final targetAnimation =
@@ -963,6 +967,9 @@ class _BackgroundAvatarState extends State<_BackgroundAvatar> {
       debugPrint("PERINGATAN: Animasi 'Talking' tidak ditemukan!");
       _thinkingAnimationName = _idleAnimationName;
     }
+    debugPrint(
+      'Animation preferences -> idle: $_idleAnimationName, thinking: $_thinkingAnimationName',
+    );
   }
 
   String? _matchAnimation(List<String> animations, String target) {
